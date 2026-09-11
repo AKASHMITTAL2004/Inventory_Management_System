@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'https://organic-space-bassoon-5gvg7v4qg4rwcvxq-5000.app.github.dev/api',
+  // This tells Vite: "If I have a production URL set in Vercel, use it. Otherwise, use my Codespace URL."
+  baseURL: import.meta.env.VITE_API_URL || 'https://organic-space-bassoon-5gvg7v4qg4rwcvxq-5000.app.github.dev/api',
 });
 
 // Automatically attach JWT token to headers if it exists in localStorage
