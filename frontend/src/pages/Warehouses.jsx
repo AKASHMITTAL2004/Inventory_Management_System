@@ -10,11 +10,13 @@ export default function Warehouses() {
 
   const fetchWarehouses = async () => {
     try {
-      const res = await API.get('/warehouses');
+      const token = localStorage.getItem("token");
+      const res = await API.get('/warehouses', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setWarehouses(res.data);
     } catch (err) {
       console.error("Error fetching warehouses", err);
-      // Removed the fake fallback data here!
     } finally {
       setLoading(false);
     }
