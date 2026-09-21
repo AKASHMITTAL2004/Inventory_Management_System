@@ -6,7 +6,7 @@ export default function Inventory() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All Items');
-  const [searchTerm, setSearchTitle] = useState(''); 
+  const [searchTerm, setSearchTerm] = useState(''); 
   
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIndustry = user?.industry || 'General';
@@ -64,7 +64,7 @@ export default function Inventory() {
     try {
       const token = localStorage.getItem("token");
       
-      // Map frontend fields to backend schema expectations
+      // Map frontend fields to backend schema expectations safely
       const payload = {
         name: formData.name,
         sku: formData.sku,
@@ -176,7 +176,7 @@ export default function Inventory() {
             <input 
               type="text" 
               value={searchTerm}
-              onChange={(e) => setSearchTitle(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by name or SKU..." 
               className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 shadow-sm"
             />
@@ -295,7 +295,7 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* Hidden required fields for Unit & Cost */}
+              {/* Required fields for Unit & Cost */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Unit Type</label>
@@ -307,14 +307,14 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* Industry-Specific Dynamic Fields */}
+              {/* Industry-Specific Dynamic Fields (Bulletproof Case-Insensitive Matching) */}
               <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl mt-4">
                 <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Info className="h-4 w-4" />
                   {userIndustry} Requirements
                 </h3>
                 
-                {userIndustry === 'Pharmacy / Medical Supplier' && (
+                {userIndustry.toLowerCase().includes('pharmacy') && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-blue-900 mb-1">Expiry Date</label>
@@ -327,7 +327,7 @@ export default function Inventory() {
                   </div>
                 )}
 
-                {userIndustry === 'Electronics' && (
+                {userIndustry.toLowerCase().includes('electronic') && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-blue-900 mb-1">Serial Number</label>
@@ -340,7 +340,7 @@ export default function Inventory() {
                   </div>
                 )}
                 
-                {userIndustry !== 'Pharmacy / Medical Supplier' && userIndustry !== 'Electronics' && (
+                {!userIndustry.toLowerCase().includes('pharmacy') && !userIndustry.toLowerCase().includes('electronic') && (
                   <p className="text-sm text-blue-700">Standard general tracking applied.</p>
                 )}
               </div>
