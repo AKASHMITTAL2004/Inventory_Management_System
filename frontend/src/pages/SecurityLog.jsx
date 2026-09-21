@@ -6,18 +6,21 @@ export default function SecurityLog() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulating fetching security logs from a backend audit collection
-    setTimeout(() => {
-      setLogs([
-        { id: 'evt_901', user: 'Admin User', email: 'admin@enterprise.com', action: 'EXPORT_INVENTORY', resource: 'Full Catalog CSV', timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), severity: 'info', ip: '192.168.1.45' },
-        { id: 'evt_902', user: 'Sarah Jenkins', email: 's.jenkins@enterprise.com', action: 'DELETE_PRODUCT', resource: 'SKU-4921 (Vaccine Vial)', timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), severity: 'critical', ip: '192.168.1.112' },
-        { id: 'evt_903', user: 'System Auto', email: 'system@enterprise.com', action: 'ANOMALY_DETECTED', resource: 'Warehouse B Capacity', timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(), severity: 'warning', ip: 'internal' },
-        { id: 'evt_904', user: 'Marcus Vance', email: 'm.vance@enterprise.com', action: 'USER_LOGIN', resource: 'Web Portal', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), severity: 'success', ip: '10.0.0.5' },
-      ]);
-      setLoading(false);
-    }, 800);
+    const fetchLogs = async () => {
+      try {
+        const res = await API.get('/logs'); // Update this to match your backend route
+        setLogs(res.data);
+      } catch (error) {
+        console.error("Error fetching security logs");
+        setLogs([]); // Ensure it stays empty instead of loading fake data
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchLogs();
   }, []);
-
+  
   const getSeverityStyle = (severity) => {
     switch(severity) {
       case 'critical': return 'bg-red-50 text-red-700 border-red-200';
