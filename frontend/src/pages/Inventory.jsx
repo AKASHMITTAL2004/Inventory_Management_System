@@ -6,21 +6,24 @@ export default function Inventory() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All Items');
-  const [searchTerm, setSearchTerm] = useState(''); // NEW: Real search state
+  const [searchTerm, setSearchTitle] = useState(''); 
   
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIndustry = user?.industry || 'General';
 
   // Modal & Edit State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null); // NEW: Tracks if we are editing
+  const [editingId, setEditingId] = useState(null); 
   const [formData, setFormData] = useState({
-    sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, attributes: {}
+    sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, unit: 'piece', cost: 0, attributes: {}
   });
 
   const fetchProducts = async () => {
     try {
-      const res = await API.get('/inventory/products');
+      const token = localStorage.getItem("token");
+      const res = await API.get('/inventory/products', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setProducts(res.data);
     } catch (err) {
       console.error("Error loading products", err);
@@ -40,7 +43,6 @@ export default function Inventory() {
     }));
   };
 
-  // NEW: Wires up the Edit Button
   const handleEdit = (product) => {
     setFormData({
       sku: product.sku,
@@ -48,25 +50,45 @@ export default function Inventory() {
       category: product.category || '',
       quantity: product.quantity,
       price: product.price || 0,
-      min_stock: product.min_stock || 10,
-      attributes: product.attributes || {}
+      min_stock: product.minThreshold || product.min_stock || 10,
+      unit: product.unit || 'piece',
+      cost: product.cost || 0,
+      attributes: product.extraFields || product.attributes || {}
     });
     setEditingId(product._id);
     setIsModalOpen(true);
   };
 
-  // UPDATED: Handles both Create (POST) and Update (PUT)
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem("token");
+      
+      // Map frontend fields to backend schema expectations
+      const payload = {
+        name: formData.name,
+        sku: formData.sku,
+        category: formData.category,
+        quantity: formData.quantity,
+        price: formData.price,
+        unit: formData.unit,
+        cost: formData.cost,
+        minThreshold: formData.min_stock,
+        extraFields: formData.attributes
+      };
+
       if (editingId) {
-        await API.put(`/inventory/products/${editingId}`, formData);
+        await API.put(`/inventory/products/${editingId}`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       } else {
-        await API.post('/inventory/products', formData);
+        await API.post('/inventory/products', payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
       setIsModalOpen(false);
       setEditingId(null);
-      setFormData({ sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, attributes: {} });
+      setFormData({ sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, unit: 'piece', cost: 0, attributes: {} });
       fetchProducts();
     } catch (err) {
       alert(err.response?.data?.message || "Error saving product.");
@@ -76,7 +98,10 @@ export default function Inventory() {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
-        await API.delete(`/inventory/products/${id}`);
+        const token = localStorage.getItem("token");
+        await API.delete(`/inventory/products/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         fetchProducts();
       } catch (err) {
         alert("Error deleting product.");
@@ -86,15 +111,15 @@ export default function Inventory() {
 
   const stats = {
     'All Items': products.length,
-    'Low Stock': products.filter(p => p.quantity <= p.min_stock && p.quantity > 0).length,
+    'Low Stock': products.filter(p => p.quantity <= (p.minThreshold || p.min_stock) && p.quantity > 0).length,
     'Out of Stock': products.filter(p => p.quantity === 0).length
   };
 
-  // UPDATED: Now filters by Tab AND Search Term
   const filteredProducts = products.filter(p => {
+    const minLimit = p.minThreshold || p.min_stock || 10;
     const matchesTab = 
       activeTab === 'All Items' || 
-      (activeTab === 'Low Stock' && p.quantity <= p.min_stock && p.quantity > 0) ||
+      (activeTab === 'Low Stock' && p.quantity <= minLimit && p.quantity > 0) ||
       (activeTab === 'Out of Stock' && p.quantity === 0);
       
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -111,7 +136,7 @@ export default function Inventory() {
         <button 
           onClick={() => {
             setEditingId(null);
-            setFormData({ sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, attributes: {} });
+            setFormData({ sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, unit: 'piece', cost: 0, attributes: {} });
             setIsModalOpen(true);
           }}
           className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-brand-500/20"
@@ -151,7 +176,7 @@ export default function Inventory() {
             <input 
               type="text" 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTitle(e.target.value)}
               placeholder="Search by name or SKU..." 
               className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500 shadow-sm"
             />
@@ -172,7 +197,9 @@ export default function Inventory() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredProducts.map(p => (
+              {filteredProducts.map(p => {
+                const minLimit = p.minThreshold || p.min_stock || 10;
+                return (
                 <div key={p._id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
@@ -184,7 +211,7 @@ export default function Inventory() {
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-slate-50 text-slate-500 border-slate-200">
                           {p.sku}
                         </span>
-                        {p.quantity <= p.min_stock && (
+                        {p.quantity <= minLimit && (
                           <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-100">
                             <AlertCircle className="h-3 w-3" /> Low Stock
                           </span>
@@ -195,9 +222,9 @@ export default function Inventory() {
                         <span>•</span>
                         <span>Price: ${p.price?.toFixed(2)}</span>
                       </div>
-                      {p.attributes && Object.keys(p.attributes).length > 0 && (
+                      {((p.extraFields && Object.keys(p.extraFields).length > 0) || (p.attributes && Object.keys(p.attributes).length > 0)) && (
                         <div className="text-[10px] text-slate-400 mt-1 flex gap-2">
-                          {Object.entries(p.attributes).map(([k, v]) => (
+                          {Object.entries(p.extraFields || p.attributes).map(([k, v]) => (
                             <span key={k} className="bg-slate-50 px-1.5 py-0.5 rounded">{k}: {v}</span>
                           ))}
                         </div>
@@ -213,7 +240,6 @@ export default function Inventory() {
                     </div>
                     
                     <div className="flex gap-2 border-l border-slate-100 pl-6">
-                      {/* RESTORED: Working Edit Button */}
                       <button onClick={() => handleEdit(p)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="h-5 w-5" />
                       </button>
@@ -223,7 +249,7 @@ export default function Inventory() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -261,11 +287,23 @@ export default function Inventory() {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Price ($)</label>
-                  <input type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" />
+                  <input type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Min Stock</label>
                   <input type="number" value={formData.min_stock} onChange={e => setFormData({...formData, min_stock: Number(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" />
+                </div>
+              </div>
+
+              {/* Hidden required fields for Unit & Cost */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Unit Type</label>
+                  <input type="text" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} placeholder="e.g. piece" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Unit Cost ($)</label>
+                  <input type="number" step="0.01" value={formData.cost} onChange={e => setFormData({...formData, cost: Number(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
                 </div>
               </div>
 
