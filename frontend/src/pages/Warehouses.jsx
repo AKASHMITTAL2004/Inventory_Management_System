@@ -30,11 +30,10 @@ export default function Warehouses() {
       await API.post('/warehouses', formData);
       setIsModalOpen(false);
       setFormData({ name: '', location: '', capacity: 1000, manager: '' });
-      fetchWarehouses();
+      fetchWarehouses(); // Refresh live data
     } catch (err) {
-      // Optimistic mock add if backend endpoint is basic
-      setWarehouses(prev => [...prev, { _id: Date.now().toString(), ...formData, currentLoad: 0 }]);
-      setIsModalOpen(false);
+      alert("Error creating warehouse");
+      // Removed the optimistic mock add here!
     }
   };
 
