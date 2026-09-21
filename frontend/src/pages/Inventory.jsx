@@ -64,7 +64,6 @@ export default function Inventory() {
     try {
       const token = localStorage.getItem("token");
       
-      // Map frontend fields to backend schema expectations safely
       const payload = {
         name: formData.name,
         sku: formData.sku,
@@ -307,7 +306,7 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* Industry-Specific Dynamic Fields (Bulletproof Case-Insensitive Matching) */}
+              {/* Industry-Specific Dynamic Fields */}
               <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl mt-4">
                 <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Info className="h-4 w-4" />
