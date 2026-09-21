@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { Users, UserPlus, Shield, Mail, CheckCircle2, Clock, MoreVertical, Trash2 } from 'lucide-react';
 
 export default function Team() {
-  const [members, setMembers] = useState([
-    { id: 1, name: 'Admin User', email: 'admin@enterprise.com', role: 'Owner', status: 'Active', avatar: 'A' },
-    { id: 2, name: 'Sarah Jenkins', email: 's.jenkins@enterprise.com', role: 'Manager', status: 'Active', avatar: 'S' },
-    { id: 3, name: 'Marcus Vance', email: 'm.vance@enterprise.com', role: 'Viewer', status: 'Pending', avatar: 'M' },
-  ]);
+  const [members, setMembers] = useState([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ email: '', role: 'Viewer' });
