@@ -11,7 +11,8 @@ export default function Warehouses() {
   const fetchWarehouses = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await API.get('/warehouses', {
+      // Updated to include /inventory/
+      const res = await API.get('/inventory/warehouses', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setWarehouses(res.data);
@@ -29,20 +30,17 @@ export default function Warehouses() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      // 1. Get the token from local storage
-      const token = localStorage.getItem("token"); 
-      
-      // 2. Pass the token securely in the headers using your exact route
-      await API.post('/warehouses', formData, {
+      const token = localStorage.getItem("token");
+      // Updated to include /inventory/ and pass the security token
+      await API.post('/inventory/warehouses', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       setIsModalOpen(false);
       setFormData({ name: '', location: '', capacity: 1000, manager: '' });
-      fetchWarehouses(); // Refresh the list
+      fetchWarehouses(); // Refresh the list from the database
     } catch (err) {
-      // This will now tell you exactly WHY it failed if it happens again
-      alert("Error: " + (err.response?.data?.message || err.message));
+      alert("Error creating warehouse: " + (err.response?.data?.message || err.message));
     }
   };
 
