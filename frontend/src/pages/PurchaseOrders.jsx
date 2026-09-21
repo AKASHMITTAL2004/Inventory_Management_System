@@ -19,14 +19,13 @@ export default function PurchaseOrders() {
 
   const fetchData = async () => {
     try {
+      // 1. Fetch live products for the dropdown
       const prodRes = await API.get('/inventory/products');
       setProducts(prodRes.data);
       
-      setOrders([
-        { _id: 'PO-9021', supplier: 'Apex Medical Supplies', product: prodRes.data[0]?.name || 'Surgical Mask Box', quantity: 500, status: 'PENDING', date: '2026-06-10', total: 2500 },
-        { _id: 'PO-9022', supplier: 'Global Tech Components', product: prodRes.data[1]?.name || 'Processor Chipset X', quantity: 120, status: 'ORDERED', date: '2026-06-08', total: 14400 },
-        { _id: 'PO-9023', supplier: 'BioPharma Logistics', product: 'Vaccine Vial Kit', quantity: 1000, status: 'RECEIVED', date: '2026-06-01', total: 8500 }
-      ]);
+      // 2. Fetch live purchase orders from your database
+      const orderRes = await API.get('/orders'); 
+      setOrders(orderRes.data);
     } catch (err) {
       console.error("Error loading purchase orders", err);
     } finally {
