@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // 1. Added for navigation
 import API from '../services/api';
 import { Truck, Plus, Mail, Phone, Star } from 'lucide-react';
 
@@ -6,20 +7,36 @@ export default function Suppliers() {
   const [suppliers, setSuppliers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', category: '' });
+  
+  const navigate = useNavigate(); // Initialize the router
 
+  // 2. Fetch live data from the database instead of using fake arrays
   useEffect(() => {
-    // Mock or fetch suppliers
-    setSuppliers([
-      { _id: '1', name: 'Apex Medical Supplies', email: 'orders@apexmed.com', phone: '+1 (555) 382-9100', category: 'Pharmaceuticals', rating: 4.8 },
-      { _id: '2', name: 'Global Tech Components', email: 'supply@globaltech.io', phone: '+1 (555) 918-2234', category: 'Electronics', rating: 4.5 }
-    ]);
+    const fetchSuppliers = async () => {
+      try {
+        const res = await API.get('/inventory/suppliers');
+        setSuppliers(res.data);
+      } catch (err) {
+        console.error("Error fetching suppliers", err);
+      }
+    };
+    fetchSuppliers();
   }, []);
 
-  const handleCreate = (e) => {
+  // 3. Save real data to MongoDB when clicking Save
+  const handleCreate = async (e) => {
     e.preventDefault();
-    setSuppliers(prev => [...prev, { _id: Date.now().toString(), ...formData, rating: 5.0 }]);
-    setIsModalOpen(false);
-    setFormData({ name: '', email: '', phone: '', category: '' });
+    try {
+      const res = await API.post('/inventory/suppliers', formData);
+      
+      // Instantly add the new database record to the screen
+      setSuppliers(prev => [...prev, { ...res.data, rating: 5.0 }]); 
+      
+      setIsModalOpen(false);
+      setFormData({ name: '', email: '', phone: '', category: '' });
+    } catch (err) {
+      alert(err.response?.data?.message || "Error saving supplier.");
+    }
   };
 
   return (
@@ -54,7 +71,7 @@ export default function Suppliers() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-xl text-xs font-bold border border-amber-100">
-                  <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" /> {s.rating}
+                  <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" /> {s.rating || '5.0'}
                 </div>
               </div>
 
@@ -69,15 +86,28 @@ export default function Suppliers() {
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-              <button className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors">
+              {/* 4. Activated the navigation routing for the buttons */}
+              <button 
+                onClick={() => navigate(`/products?vendor=${s._id}`)}
+                className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              >
                 View Catalog
               </button>
-              <button className="px-4 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-bold transition-colors">
+              <button 
+                onClick={() => navigate(`/purchase-orders/new?vendor=${s._id}`)}
+                className="px-4 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-bold transition-colors"
+              >
                 Draft Purchase Order
               </button>
             </div>
           </div>
         ))}
+        
+        {suppliers.length === 0 && (
+          <div className="col-span-1 md:col-span-2 text-center py-12 text-slate-400">
+            No suppliers found. Click "Add Supplier" to create one.
+          </div>
+        )}
       </div>
 
       {/* Modal */}
