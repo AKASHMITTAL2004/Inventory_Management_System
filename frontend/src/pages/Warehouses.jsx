@@ -27,13 +27,20 @@ export default function Warehouses() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await API.post('/warehouses', formData);
+      // 1. Get the token from local storage
+      const token = localStorage.getItem("token"); 
+      
+      // 2. Pass the token securely in the headers using your exact route
+      await API.post('/warehouses', formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
       setIsModalOpen(false);
       setFormData({ name: '', location: '', capacity: 1000, manager: '' });
-      fetchWarehouses(); // Refresh live data
+      fetchWarehouses(); // Refresh the list
     } catch (err) {
-      alert("Error creating warehouse");
-      // Removed the optimistic mock add here!
+      // This will now tell you exactly WHY it failed if it happens again
+      alert("Error: " + (err.response?.data?.message || err.message));
     }
   };
 
