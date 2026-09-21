@@ -13,16 +13,13 @@ export default function Warehouses() {
       const res = await API.get('/warehouses');
       setWarehouses(res.data);
     } catch (err) {
-      // Fallback mock data if backend collection is empty or route differs
-      setWarehouses([
-        { _id: '1', name: 'Primary Distribution Center', location: 'Chicago, IL', capacity: 5000, currentLoad: 3400, manager: 'Sarah Jenkins' },
-        { _id: '2', name: 'West Coast Fulfillment Hub', location: 'Reno, NV', capacity: 3000, currentLoad: 1200, manager: 'Marcus Vance' }
-      ]);
+      console.error("Error fetching warehouses", err);
+      // Removed the fake fallback data here!
     } finally {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
     fetchWarehouses();
   }, []);
