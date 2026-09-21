@@ -37,21 +37,27 @@ export default function PurchaseOrders() {
     fetchData();
   }, []);
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
-    const selectedProd = products.find(p => p._id === formData.product_id);
-    const newPO = {
-      _id: `PO-${Math.floor(1000 + Math.random() * 9000)}`,
-      supplier: formData.supplier || 'Default Vendor',
-      product: selectedProd ? selectedProd.name : 'Custom Item',
-      quantity: formData.quantity,
-      status: 'PENDING',
-      date: new Date().toISOString().split('T')[0],
-      total: formData.quantity * (selectedProd?.price || 20)
-    };
-    setOrders([newPO, ...orders]);
-    setIsModalOpen(false);
-    setFormData({ supplier: '', product_id: '', quantity: 10, expectedDate: '', notes: '' });
+    
+    try {
+      // Send the real data to your backend API
+      const response = await API.post('/orders', {
+        supplier_id: formData.supplier,
+        product_id: formData.product_id,
+        quantity: formData.quantity,
+        expectedDate: formData.expectedDate,
+        notes: formData.notes
+      });
+      
+      // Add the successfully saved order to the screen instantly
+      setOrders([response.data, ...orders]);
+      setIsModalOpen(false);
+      setFormData({ supplier: '', product_id: '', quantity: 10, expectedDate: '', notes: '' });
+    } catch (err) {
+      console.error("Failed to save purchase order", err);
+      alert("Error saving order. Check your backend.");
+    }
   };
 
   const stats = {
