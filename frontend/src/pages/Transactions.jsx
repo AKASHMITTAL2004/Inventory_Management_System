@@ -21,14 +21,14 @@ export default function Transactions() {
 
   const fetchData = async () => {
     try {
+      const token = localStorage.getItem("token");
       const [transRes, prodRes] = await Promise.all([
-        API.get('/transactions'),
-        API.get('/inventory/products') // Need products for the dropdown menu!
+        API.get('/transactions', { headers: { Authorization: `Bearer ${token}` } }),
+        API.get('/inventory/products', { headers: { Authorization: `Bearer ${token}` } }) 
       ]);
       setTransactions(transRes.data);
       setProducts(prodRes.data);
       
-      // Auto-select first product in form if available
       if (prodRes.data.length > 0) {
         setFormData(prev => ({ ...prev, product_id: prodRes.data[0]._id }));
       }
@@ -46,7 +46,10 @@ export default function Transactions() {
   // Workflow Approval
   const handleApproval = async (id, action) => {
     try {
-      await API.patch(`/transactions/${id}/approve`, { status: action });
+      const token = localStorage.getItem("token");
+      await API.patch(`/transactions/${id}/approve`, { status: action }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchData();
     } catch (err) {
       alert("Error updating transaction status.");
@@ -57,10 +60,13 @@ export default function Transactions() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await API.post('/transactions', formData);
+      const token = localStorage.getItem("token");
+      await API.post('/transactions', formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setIsModalOpen(false);
-      setFormData({ ...formData, quantity: 1, notes: '' }); // Reset form
-      fetchData(); // Refresh the list
+      setFormData({ ...formData, quantity: 1, notes: '' }); 
+      fetchData(); 
     } catch (err) {
       alert(err.response?.data?.message || 'Error creating transaction');
     }
@@ -161,8 +167,8 @@ export default function Transactions() {
                       <span className="text-xs text-slate-400">By {t.user_id?.name || 'System'}</span>
                     </div>
                     
-                    {/* Approval Workflow Actions */}
-                    {t.status === 'PENDING' && (user.role === 'admin' || user.role === 'manager') && (
+                    {/* FIXED: Case-insensitive role check for Approval buttons */}
+                    {t.status === 'PENDING' && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'manager') && (
                       <div className="flex gap-2 border-l border-slate-100 pl-6">
                         <button onClick={() => handleApproval(t._id, 'COMPLETED')} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors" title="Approve">
                           <Check className="h-5 w-5" />
@@ -180,7 +186,7 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* RESTORED: Create Transaction Modal Form */}
+      {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
