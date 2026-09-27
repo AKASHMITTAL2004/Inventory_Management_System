@@ -1,20 +1,26 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { 
-  getWarehouses, createWarehouse, 
-  getSuppliers, createSupplier, 
-  getProducts, createProduct 
+  getWarehouses, createWarehouse,
+  getSuppliers, createSupplier,
+  getProducts, createProduct,
+  updateProduct, deleteProduct // 1. Import the new controllers
 } from "../controllers/inventoryController.js";
 
 const router = express.Router();
 
-// This single line protects ALL routes below it. 
-// A user must pass a valid JWT to proceed.
-router.use(protect); 
+router.use(protect);
 
-// .route() lets us chain GET and POST to the same URL
 router.route("/warehouses").get(getWarehouses).post(createWarehouse);
 router.route("/suppliers").get(getSuppliers).post(createSupplier);
-router.route("/products").get(getProducts).post(createProduct);
+
+// 2. Add .put and .delete handlers for products using their ID
+router.route("/products")
+  .get(getProducts)
+  .post(createProduct);
+
+router.route("/products/:id")
+  .put(updateProduct)
+  .delete(deleteProduct);
 
 export default router;
