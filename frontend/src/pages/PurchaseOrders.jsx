@@ -31,7 +31,7 @@ export default function PurchaseOrders() {
       setIsModalOpen(true); // Pop the modal open
       setFormData(prev => ({ ...prev, supplier: vendorId })); // Auto-fill the ID
     }
-  }, [searchParams]);
+  }, []);
 
   const fetchData = async () => {
     try {
