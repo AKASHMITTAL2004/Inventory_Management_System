@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import API from '../services/api';
-import { ShoppingCart, Plus, Search, Filter, Clock, CheckCircle2, Truck, Package } from 'lucide-react';
+import { ShoppingCart, Plus, Search, Filter, Clock, CheckCircle2, Truck } from 'lucide-react';
 
 export default function PurchaseOrders() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]); // NEW: State to hold suppliers
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,33 +20,29 @@ export default function PurchaseOrders() {
     notes: ''
   });
 
-  // Automatically open modal and set supplier if coming from a "Draft Order" link
-  useEffect(() => {
-    fetchData();
-
-    // Foolproof way to read the URL and auto-fill the vendor
-    const urlParams = new URLSearchParams(window.location.search);
-    const vendorId = urlParams.get('vendor');
-    
-    if (vendorId) {
-      setIsModalOpen(true); // Pop the modal open
-      setFormData(prev => ({ ...prev, supplier: vendorId })); // Auto-fill the ID
-    }
-  }, []);
-
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      const [prodRes, orderRes] = await Promise.all([
-        API.get('/inventory/products', { headers: { Authorization: `Bearer ${token}` } }),
-        API.get('/orders', { headers: { Authorization: `Bearer ${token}` } }) 
-      ]);
-      
+      // 1. Fetch Products and Suppliers safely
+      const prodRes = await API.get('/inventory/products', config);
       setProducts(prodRes.data);
-      setOrders(orderRes.data);
+
+      const suppRes = await API.get('/inventory/suppliers', config);
+      setSuppliers(suppRes.data);
+
+      // 2. Try to fetch orders, but don't crash if the backend route isn't built yet
+      try {
+        const orderRes = await API.get('/orders', config);
+        setOrders(orderRes.data);
+      } catch (orderErr) {
+        console.warn("Backend /orders route is missing or failing. Defaulting to empty array.");
+        setOrders([]); 
+      }
+      
     } catch (err) {
-      console.error("Error loading purchase orders", err);
+      console.error("Error loading essential form data", err);
     } finally {
       setLoading(false);
     }
@@ -55,11 +52,19 @@ export default function PurchaseOrders() {
     fetchData();
   }, []);
 
+  // Auto-fill vendor ID from URL and open modal AFTER suppliers load
+  useEffect(() => {
+    const vendorId = searchParams.get('vendor');
+    if (vendorId && suppliers.length > 0) {
+      setIsModalOpen(true);
+      setFormData(prev => ({ ...prev, supplier: vendorId }));
+    }
+  }, [searchParams, suppliers]);
+
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
-      
       const response = await API.post('/orders', {
         supplier_id: formData.supplier,
         product_id: formData.product_id,
@@ -75,7 +80,7 @@ export default function PurchaseOrders() {
       setFormData({ supplier: '', product_id: '', quantity: 10, expectedDate: '', notes: '' });
     } catch (err) {
       console.error("Failed to save purchase order", err);
-      alert("Error saving order. Check your backend.");
+      alert("Error saving order. Have you built the POST /orders route on your backend yet?");
     }
   };
 
@@ -107,7 +112,6 @@ export default function PurchaseOrders() {
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-        {/* Tab Bar */}
         <div className="flex items-center gap-6 px-8 pt-6 border-b border-slate-100">
           {['All', 'Pending', 'Ordered', 'Received'].map(tab => (
             <button 
@@ -127,7 +131,6 @@ export default function PurchaseOrders() {
           ))}
         </div>
 
-        {/* Search & Filter */}
         <div className="p-6 flex gap-4 border-b border-slate-50 bg-slate-50/50">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-2.5 h-5 w-5 text-slate-400" />
@@ -142,7 +145,6 @@ export default function PurchaseOrders() {
           </button>
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="text-center py-10 text-slate-400">Loading purchase orders...</div>
@@ -202,16 +204,24 @@ export default function PurchaseOrders() {
         </div>
       </div>
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">Create Purchase Order</h2>
             <form onSubmit={handleCreate} className="space-y-4">
+              
+              {/* FIXED: This is now a dropdown showing actual Supplier Names */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Vendor / Supplier ID</label>
-                <input type="text" value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} placeholder="e.g. 6ab9168..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
+                <label className="block text-sm font-bold text-slate-700 mb-2">Vendor / Supplier</label>
+                <select value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required>
+                  <option value="">Select a vendor...</option>
+                  {suppliers.map(s => (
+                    <option key={s._id} value={s._id}>{s.name} ({s.contactName})</option>
+                  ))}
+                </select>
               </div>
+              
+              {/* FIXED: This will now successfully load your products */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Select Product to Restock</label>
                 <select value={formData.product_id} onChange={e => setFormData({...formData, product_id: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required>
@@ -221,6 +231,7 @@ export default function PurchaseOrders() {
                   ))}
                 </select>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Quantity</label>
