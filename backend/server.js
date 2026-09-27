@@ -10,6 +10,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import qrRoutes from "./routes/qrRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import exportRoutes from "./routes/exportRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 
 dotenv.config(); 
 
@@ -33,6 +34,7 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/qr", qrRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/export", exportRoutes);
 
