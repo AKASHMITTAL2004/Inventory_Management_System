@@ -70,8 +70,6 @@ export default function Inventory() {
         category: formData.category,
         quantity: formData.quantity,
         price: formData.price,
-        unit: formData.unit,
-        cost: formData.cost,
         minThreshold: formData.min_stock,
         extraFields: formData.attributes
       };
@@ -291,18 +289,6 @@ export default function Inventory() {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Min Stock</label>
                   <input type="number" value={formData.min_stock} onChange={e => setFormData({...formData, min_stock: Number(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" />
-                </div>
-              </div>
-
-              {/* Required fields for Unit & Cost */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Unit Type</label>
-                  <input type="text" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} placeholder="e.g. piece" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Unit Cost ($)</label>
-                  <input type="number" step="0.01" value={formData.cost} onChange={e => setFormData({...formData, cost: Number(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
                 </div>
               </div>
 
