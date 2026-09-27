@@ -174,7 +174,7 @@ export default function App() {
         <Route path="/settings" element={user ? <Layout user={user} handleLogout={handleLogout}><Settings /></Layout> : <Navigate to="/login" />} />
         <Route path="/warehouses" element={user ? <Layout user={user} handleLogout={handleLogout}><Warehouses /></Layout> : <Navigate to="/login" />} />
         <Route path="/suppliers" element={user ? <Layout user={user} handleLogout={handleLogout}><Suppliers /></Layout> : <Navigate to="/login" />} />
-        <Route path="/purchase-orders" element={user ? <Layout user={user} handleLogout={handleLogout}><PurchaseOrders /></Layout> : <Navigate to="/login" />} />
+        <Route path="/purchase-orders/new" element={user ? <Layout user={user} handleLogout={handleLogout}><PurchaseOrders /></Layout> : <Navigate to="/login" />} />
         <Route path="/security-log" element={user ? <Layout user={user} handleLogout={handleLogout}><SecurityLog /></Layout> : <Navigate to="/login" />} />
         <Route path="/team" element={user ? <Layout user={user} handleLogout={handleLogout}><Team /></Layout> : <Navigate to="/login" />} />
       </Routes>
