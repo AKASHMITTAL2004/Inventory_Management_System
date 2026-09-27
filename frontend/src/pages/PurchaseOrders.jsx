@@ -21,10 +21,15 @@ export default function PurchaseOrders() {
 
   // Automatically open modal and set supplier if coming from a "Draft Order" link
   useEffect(() => {
-    const vendorId = searchParams.get('vendor');
+    fetchData();
+
+    // Foolproof way to read the URL and auto-fill the vendor
+    const urlParams = new URLSearchParams(window.location.search);
+    const vendorId = urlParams.get('vendor');
+    
     if (vendorId) {
-      setIsModalOpen(true);
-      setFormData(prev => ({ ...prev, supplier: vendorId }));
+      setIsModalOpen(true); // Pop the modal open
+      setFormData(prev => ({ ...prev, supplier: vendorId })); // Auto-fill the ID
     }
   }, [searchParams]);
 
