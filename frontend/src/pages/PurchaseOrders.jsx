@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import API from '../services/api';
 import { ShoppingCart, Plus, Search, Filter, Clock, CheckCircle2, Truck, Package } from 'lucide-react';
 
@@ -8,6 +9,7 @@ export default function PurchaseOrders() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchParams] = useSearchParams();
   
   const [formData, setFormData] = useState({
     supplier: '',
@@ -17,14 +19,25 @@ export default function PurchaseOrders() {
     notes: ''
   });
 
+  // Automatically open modal and set supplier if coming from a "Draft Order" link
+  useEffect(() => {
+    const vendorId = searchParams.get('vendor');
+    if (vendorId) {
+      setIsModalOpen(true);
+      setFormData(prev => ({ ...prev, supplier: vendorId }));
+    }
+  }, [searchParams]);
+
   const fetchData = async () => {
     try {
-      // 1. Fetch live products for the dropdown
-      const prodRes = await API.get('/inventory/products');
-      setProducts(prodRes.data);
+      const token = localStorage.getItem("token");
       
-      // 2. Fetch live purchase orders from your database
-      const orderRes = await API.get('/orders'); 
+      const [prodRes, orderRes] = await Promise.all([
+        API.get('/inventory/products', { headers: { Authorization: `Bearer ${token}` } }),
+        API.get('/orders', { headers: { Authorization: `Bearer ${token}` } }) 
+      ]);
+      
+      setProducts(prodRes.data);
       setOrders(orderRes.data);
     } catch (err) {
       console.error("Error loading purchase orders", err);
@@ -39,18 +52,19 @@ export default function PurchaseOrders() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    
     try {
-      // Send the real data to your backend API
+      const token = localStorage.getItem("token");
+      
       const response = await API.post('/orders', {
         supplier_id: formData.supplier,
         product_id: formData.product_id,
         quantity: formData.quantity,
         expectedDate: formData.expectedDate,
         notes: formData.notes
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Add the successfully saved order to the screen instantly
       setOrders([response.data, ...orders]);
       setIsModalOpen(false);
       setFormData({ supplier: '', product_id: '', quantity: 10, expectedDate: '', notes: '' });
@@ -169,7 +183,7 @@ export default function PurchaseOrders() {
 
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <span className="block text-lg font-bold text-slate-800">${po.total.toLocaleString()}</span>
+                      <span className="block text-lg font-bold text-slate-800">${po.total?.toLocaleString() || 0}</span>
                       <span className="text-xs text-slate-400">{po.quantity} Units</span>
                     </div>
                     <button className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200">
@@ -190,8 +204,8 @@ export default function PurchaseOrders() {
             <h2 className="text-2xl font-bold text-slate-800 mb-6">Create Purchase Order</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Vendor / Supplier Name</label>
-                <input type="text" value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} placeholder="e.g. Apex Medical" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
+                <label className="block text-sm font-bold text-slate-700 mb-2">Vendor / Supplier ID</label>
+                <input type="text" value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} placeholder="e.g. 6ab9168..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required />
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Select Product to Restock</label>
