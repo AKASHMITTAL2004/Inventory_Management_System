@@ -19,18 +19,14 @@ export const signup = async (req, res) => {
   try {
     const { orgName, industry, userName, email, password } = req.body;
 
-    // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: "User already exists" });
 
-    // Hash the password (scrambles it so it isn't saved as plain text)
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
-    // Create the organization first
     const organization = await Organization.create({ name: orgName, industry });
 
-    // Create the user, make them Admin, and link to the new org
     const user = await User.create({
       name: userName,
       email,
@@ -41,7 +37,8 @@ export const signup = async (req, res) => {
 
     res.status(201).json({
       token: generateToken(user),
-      user: { id: user._id, name: user.name, role: user.role, orgId: organization._id }
+      // ADDED: industry is now sent to the frontend
+      user: { id: user._id, name: user.name, role: user.role, orgId: organization._id, industry: organization.industry }
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during signup", error: error.message });
@@ -54,36 +51,36 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    // Check user and compare hashed password
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // If they have 2FA enabled, we don't give the full token yet
     if (user.is2FAEnabled) {
       return res.json({ requires2FA: true, userId: user._id });
     }
 
+    // ADDED: Fetch the organization to get the industry
+    const organization = await Organization.findById(user.organization_id);
+
     res.json({
       token: generateToken(user),
-      user: { id: user._id, name: user.name, role: user.role, orgId: user.organization_id }
+      // ADDED: industry is now sent to the frontend
+      user: { id: user._id, name: user.name, role: user.role, orgId: user.organization_id, industry: organization?.industry || 'general' }
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during login" });
   }
 };
 
-// 3. SETUP 2FA (Generates the QR Code for Google Authenticator)
+// 3. SETUP 2FA
 export const setup2FA = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id); // req.user comes from our middleware
+    const user = await User.findById(req.user.id);
     
-    // Generate a secure secret
     const secret = speakeasy.generateSecret({ name: `InventoryApp (${user.email})` });
     user.twoFactorSecret = secret.base32;
     await user.save();
 
-    // Convert that secret into a QR code image URL
     const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
     
     res.json({ secret: secret.base32, qrCodeUrl });
@@ -92,7 +89,7 @@ export const setup2FA = async (req, res) => {
   }
 };
 
-// 4. VERIFY 2FA (Used during setup OR during login)
+// 4. VERIFY 2FA
 export const verify2FA = async (req, res) => {
   try {
     const { userId, token } = req.body;
@@ -102,20 +99,22 @@ export const verify2FA = async (req, res) => {
       secret: user.twoFactorSecret,
       encoding: "base32",
       token: token,
-      window: 1 // allows slight time drift
+      window: 1
     });
 
     if (verified) {
-      // If verifying for the first time during setup, enable it
       if (!user.is2FAEnabled) {
         user.is2FAEnabled = true;
         await user.save();
       }
       
-      // Issue the real JWT now that they've passed 2FA
+      // ADDED: Fetch the organization to get the industry
+      const organization = await Organization.findById(user.organization_id);
+
       res.json({
         token: generateToken(user),
-        user: { id: user._id, name: user.name, role: user.role, orgId: user.organization_id }
+        // ADDED: industry is now sent to the frontend
+        user: { id: user._id, name: user.name, role: user.role, orgId: user.organization_id, industry: organization?.industry || 'general' }
       });
     } else {
       res.status(400).json({ message: "Invalid 2FA token" });
