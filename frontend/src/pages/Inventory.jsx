@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import API from '../services/api';
 import { Search, Filter, Plus, Package, Edit2, Trash2, AlertCircle, Info } from 'lucide-react';
 
@@ -8,10 +9,13 @@ export default function Inventory() {
   const [activeTab, setActiveTab] = useState('All Items');
   const [searchTerm, setSearchTerm] = useState(''); 
   
+  // NEW: Grab the vendor ID from the URL
+  const [searchParams] = useSearchParams();
+  const vendorId = searchParams.get('vendor');
+  
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userIndustry = user?.industry || 'General';
 
-  // Modal & Edit State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null); 
   const [formData, setFormData] = useState({
@@ -119,27 +123,48 @@ export default function Inventory() {
       (activeTab === 'Low Stock' && p.quantity <= minLimit && p.quantity > 0) ||
       (activeTab === 'Out of Stock' && p.quantity === 0);
       
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    // FIX: Safely fallback to empty string before calling toLowerCase() to prevent white screen crashes
+    const matchesSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
                           
-    return matchesTab && matchesSearch;
+    // FIX: Only show products belonging to the specific vendor if clicked from the Suppliers page
+    const matchesVendor = vendorId ? (p.supplier_id === vendorId || p.supplier === vendorId) : true;
+                          
+    return matchesTab && matchesSearch && matchesVendor;
   });
 
   return (
     <div className="p-8 max-w-7xl mx-auto h-full flex flex-col relative">
       
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Inventory Catalog</h1>
-        <button 
-          onClick={() => {
-            setEditingId(null);
-            setFormData({ sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, unit: 'piece', cost: 0, attributes: {} });
-            setIsModalOpen(true);
-          }}
-          className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-brand-500/20"
-        >
-          <Plus className="h-5 w-5" /> Add Product
-        </button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">
+            {vendorId ? 'Vendor Catalog' : 'Inventory Catalog'}
+          </h1>
+          {vendorId && (
+            <p className="text-brand-600 font-medium mt-1">Filtering products by selected supplier</p>
+          )}
+        </div>
+        <div className="flex gap-3">
+          {vendorId && (
+            <button 
+              onClick={() => window.history.back()}
+              className="px-5 py-2.5 rounded-xl font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+            >
+              Back to Suppliers
+            </button>
+          )}
+          <button 
+            onClick={() => {
+              setEditingId(null);
+              setFormData({ sku: '', name: '', category: '', quantity: 0, price: 0, min_stock: 10, unit: 'piece', cost: 0, attributes: {} });
+              setIsModalOpen(true);
+            }}
+            className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-brand-500/20"
+          >
+            <Plus className="h-5 w-5" /> Add Product
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
