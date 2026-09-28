@@ -4,41 +4,46 @@ import { Building2, Plus, MapPin, Layers, Users, Trash2 } from 'lucide-react';
 
 export default function Warehouses() {
   const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]); // NEW: State to hold products for math
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', location: '', capacity: 1000, manager: '' });
 
-  const fetchWarehouses = async () => {
+  const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
-      // Updated to include /inventory/
-      const res = await API.get('/inventory/warehouses', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setWarehouses(res.data);
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      // NEW: Fetch both Warehouses AND Products at the same time
+      const [wareRes, prodRes] = await Promise.all([
+        API.get('/inventory/warehouses', config),
+        API.get('/inventory/products', config).catch(() => ({ data: [] })) // Failsafe
+      ]);
+      
+      setWarehouses(wareRes.data);
+      setProducts(prodRes.data);
     } catch (err) {
-      console.error("Error fetching warehouses", err);
+      console.error("Error fetching warehouse data", err);
     } finally {
       setLoading(false);
     }
   };
   
   useEffect(() => {
-    fetchWarehouses();
+    fetchData();
   }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
-      // Updated to include /inventory/ and pass the security token
       await API.post('/inventory/warehouses', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       setIsModalOpen(false);
       setFormData({ name: '', location: '', capacity: 1000, manager: '' });
-      fetchWarehouses(); // Refresh the list from the database
+      fetchData(); // Refresh both lists to update the math
     } catch (err) {
       alert("Error creating warehouse: " + (err.response?.data?.message || err.message));
     }
@@ -60,47 +65,58 @@ export default function Warehouses() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {warehouses.map(w => (
-          <div key={w._id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 border border-brand-100">
-                    <Building2 className="h-6 w-6" />
+        {warehouses.map(w => {
+          // NEW: Real-time math to calculate utilization based on actual product data
+          const productsInThisWarehouse = products.filter(p => p.warehouse === w._id || p.warehouse_id === w._id);
+          const currentStock = productsInThisWarehouse.reduce((sum, p) => sum + (p.quantity || 0), 0);
+          const displayStock = currentStock > 0 ? currentStock : (w.currentLoad || 0);
+          const utilizationPercent = Math.min(100, Math.round((displayStock / w.capacity) * 100)) || 0;
+
+          return (
+            <div key={w._id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 border border-brand-100">
+                      <Building2 className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-slate-800">{w.name}</h3>
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3.5 w-3.5" /> {w.location}
+                      </p>
+                    </div>
                   </div>
+                  <span className="text-xs font-bold px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                    Active
+                  </span>
+                </div>
+
+                <div className="space-y-3 mb-6">
                   <div>
-                    <h3 className="font-bold text-lg text-slate-800">{w.name}</h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="h-3.5 w-3.5" /> {w.location}
-                    </p>
+                    <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                      <span>Capacity Utilization</span>
+                      <span>{utilizationPercent}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div 
+                        className="bg-brand-600 h-2 rounded-full transition-all duration-1000 ease-out" 
+                        style={{ width: `${utilizationPercent}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
-                <span className="text-xs font-bold px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
-                  Active
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4" /> Manager: {w.manager || 'Unassigned'}
                 </span>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <div>
-                  <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
-                    <span>Capacity Utilization</span>
-                    <span>{Math.round(((w.currentLoad || 0) / w.capacity) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-brand-600 h-2 rounded-full" style={{ width: `${Math.min(100, ((w.currentLoad || 0) / w.capacity) * 100)}%` }}></div>
-                  </div>
-                </div>
+                <span className="font-bold text-slate-700">Max Cap: {w.capacity.toLocaleString()} Units</span>
               </div>
             </div>
-
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span className="flex items-center gap-1">
-                <Users className="h-4 w-4" /> Manager: {w.manager || 'Unassigned'}
-              </span>
-              <span className="font-bold text-slate-700">Max Cap: {w.capacity.toLocaleString()} Units</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Modal */}
