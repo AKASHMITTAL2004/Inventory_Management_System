@@ -11,6 +11,11 @@ import {
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function Dashboard() {
+  // Added state for real-time calculations
+  const [products, setProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  
   const [data, setData] = useState({
     summary: { totalValuation: 0, lowStockCount: 0, totalProducts: 0 },
     charts: { categoryDistribution: [], volume: { inbound: 0, outbound: 0 } },
@@ -21,12 +26,26 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await API.get('/dashboard');
-      if (res.data) setData(res.data);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      // Fetch all necessary data simultaneously without crashing if one is missing
+      const [dashRes, prodRes, wareRes, suppRes] = await Promise.all([
+        API.get('/dashboard', config).catch(() => ({ data: data })),
+        API.get('/inventory/products', config).catch(() => ({ data: [] })),
+        API.get('/inventory/warehouses', config).catch(() => API.get('/warehouses', config)).catch(() => ({ data: [] })),
+        API.get('/inventory/suppliers', config).catch(() => ({ data: [] }))
+      ]);
+
+      if (dashRes.data) setData(dashRes.data);
+      if (prodRes.data) setProducts(prodRes.data);
+      if (wareRes.data) setWarehouses(wareRes.data);
+      if (suppRes.data) setSuppliers(suppRes.data);
+
     } catch (err) {
       console.error("Error fetching dashboard", err);
     } finally {
-      setLoading(false); // Fixes the infinite loading bug!
+      setLoading(false);
     }
   };
 
@@ -36,9 +55,36 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- DYNAMIC CALCULATIONS ---
+
+  // 1. Calculate Total Valuation from actual products
+  const totalValuation = products.reduce((total, p) => total + ((p.quantity || 0) * (p.price || 0)), 0);
+  
+  // 2. Count Low Stock items
+  const lowStockCount = products.filter(p => (p.quantity || 0) <= (p.minStockThreshold || 500)).length;
+
+  // 3. Aggregate Categories dynamically for the Pie Chart
+  const categoryMap = {};
+  products.forEach(p => {
+    const cat = p.category || 'General';
+    categoryMap[cat] = (categoryMap[cat] || 0) + (p.quantity || 1);
+  });
+  const dynamicCategoryDistribution = Object.keys(categoryMap).length > 0 
+    ? Object.keys(categoryMap).map(key => ({ name: key, value: categoryMap[key] }))
+    : [{ name: 'Empty', value: 1 }];
+
+  // 4. Calculate Profile Completeness automatically
+  const profileSteps = [
+    { name: "Register business account", completed: true },
+    { name: "Add first warehouse", completed: warehouses.length > 0 },
+    { name: "Connect a supplier", completed: suppliers.length > 0 },
+    { name: "Log first product", completed: products.length > 0 },
+  ];
+  const progressPercentage = (profileSteps.filter(s => s.completed).length / profileSteps.length) * 100;
+
   const volumeData = [
-    { name: 'Inbound', volume: data.charts.volume.inbound || 0, fill: '#10b981' },
-    { name: 'Outbound', volume: data.charts.volume.outbound || 0, fill: '#3b82f6' }
+    { name: 'Inbound', volume: data.charts.volume?.inbound || 0, fill: '#10b981' },
+    { name: 'Outbound', volume: data.charts.volume?.outbound || 0, fill: '#3b82f6' }
   ];
 
   if (loading) {
@@ -59,13 +105,12 @@ export default function Dashboard() {
             View Analytics Report
           </button>
         </div>
-        {/* Decorative background element */}
         <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle at right, #4f46e5 0%, transparent 70%)' }}></div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         
-        {/* MAIN CONTENT (Left 3 Columns) */}
+        {/* MAIN CONTENT */}
         <div className="xl:col-span-3 space-y-8">
           
           {/* KPI Cards */}
@@ -79,36 +124,43 @@ export default function Dashboard() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Card 1 */}
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-2">Total Valuation</p>
                 <div className="flex items-end gap-3">
-                  <h3 className="text-4xl font-black tracking-tight text-slate-900">${data.summary.totalValuation.toLocaleString()}</h3>
-                  <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-1">
-                    ↑ 12.5%
-                  </span>
+                  <h3 className="text-4xl font-black tracking-tight text-slate-900">${totalValuation.toLocaleString()}</h3>
+                  {totalValuation > 0 && (
+                    <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-1">
+                      ↑ 12.5%
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Card 2 */}
               <div className="border-l border-slate-100 pl-8">
                 <p className="text-sm font-medium text-slate-500 mb-2">Active Products</p>
                 <div className="flex items-end gap-3">
-                  <h3 className="text-4xl font-black tracking-tight text-slate-900">{data.summary.totalProducts}</h3>
-                  <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-1">
-                    ↑ 4.2%
-                  </span>
+                  <h3 className="text-4xl font-black tracking-tight text-slate-900">{products.length}</h3>
+                  {products.length > 0 && (
+                    <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-1">
+                      ↑ Active
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Card 3 */}
               <div className="border-l border-slate-100 pl-8">
                 <p className="text-sm font-medium text-slate-500 mb-2">Low Stock Alerts</p>
                 <div className="flex items-end gap-3">
-                  <h3 className="text-4xl font-black tracking-tight text-slate-900">{data.summary.lowStockCount}</h3>
-                  <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md mb-1">
-                    ↓ 1.8%
-                  </span>
+                  <h3 className="text-4xl font-black tracking-tight text-slate-900">{lowStockCount}</h3>
+                  {lowStockCount > 0 ? (
+                    <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md mb-1">
+                      Action Needed
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md mb-1">
+                      Optimal
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -121,8 +173,8 @@ export default function Dashboard() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={data.charts.categoryDistribution.length ? data.charts.categoryDistribution : [{name: 'Empty', value: 1}]} innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">
-                      {(data.charts.categoryDistribution.length ? data.charts.categoryDistribution : [{name: 'Empty', value: 1}]).map((entry, index) => (
+                    <Pie data={dynamicCategoryDistribution} innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value">
+                      {dynamicCategoryDistribution.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -146,9 +198,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* RESTORED: Recent Activity Feed */}
+          {/* Recent Activity Feed */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm mt-8">
             <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
               <Activity className="h-5 w-5 text-brand-500" /> Live Activity Stream
@@ -157,50 +208,49 @@ export default function Dashboard() {
               {data.recentActivity && data.recentActivity.length > 0 ? (
                 data.recentActivity.map((activity, idx) => (
                   <div key={idx} className="flex items-center gap-4 text-sm border-b border-slate-50 pb-4 last:border-0 last:pb-0">
-                    <div className={`p-2 rounded-lg ${activity.type === 'INBOUND' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                    <div className={`p-2 rounded-lg ${activity.type === 'INBOUND' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
                       {activity.type === 'INBOUND' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-slate-700">
                         {activity.quantity}x {activity.product_id?.name || 'Item'} {activity.type === 'INBOUND' ? 'received' : 'dispatched'}
                       </p>
-                      <p className="text-xs text-slate-400">By {activity.user_id?.name} • {new Date(activity.timestamp).toLocaleTimeString()}</p>
+                      <p className="text-xs text-slate-400">By {activity.user_id?.name || 'System'} • {new Date(activity.timestamp).toLocaleTimeString()}</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-slate-400 text-sm">No recent activity detected.</p>
+                <p className="text-slate-400 text-sm p-4 bg-slate-50 rounded-xl">No recent movement activity detected yet.</p>
               )}
             </div>
           </div> 
-
+        </div>
 
         {/* RIGHT SIDEBAR (Setup Wizard) */}
         <div className="xl:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
             <h3 className="text-lg font-bold text-slate-800 mb-2">Profile Completeness</h3>
-            <div className="w-full bg-slate-100 rounded-full h-2.5 mb-6">
-              <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: '45%' }}></div>
+            <div className="w-full bg-slate-100 rounded-full h-2.5 mb-6 overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+                style={{ width: `${progressPercentage}%` }}
+              ></div>
             </div>
             
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Store Configuration</h4>
             <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-700">Register business account</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Circle className="h-5 w-5 text-slate-300 flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-500">Add first warehouse</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Circle className="h-5 w-5 text-slate-300 flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-500">Connect a supplier</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Circle className="h-5 w-5 text-slate-300 flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-500">Log first product</span>
-              </li>
+              {profileSteps.map((step, idx) => (
+                <li key={idx} className="flex items-start gap-3">
+                  {step.completed ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-slate-300 flex-shrink-0" />
+                  )}
+                  <span className={`text-sm font-medium ${step.completed ? 'text-slate-700' : 'text-slate-500'}`}>
+                    {step.name}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
