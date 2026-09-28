@@ -58,3 +58,25 @@ export const createOrder = async (req, res) => {
     res.status(500).json({ message: "Error creating order", error: error.message });
   }
 };
+
+// Update Order Status
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    // Find the order by the ID in the URL and update its status
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id, 
+      { status: status }, 
+      { new: true } // Returns the updated document
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ message: "Server error updating order", error: error.message });
+  }
+};
