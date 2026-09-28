@@ -166,7 +166,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={!user ? <Login setAuth={setUser} /> : <Navigate to="/" />} />
         <Route path="/" element={user ? <Layout user={user} handleLogout={handleLogout}><Dashboard /></Layout> : <Navigate to="/login" />} />
+        
+        {/* Core Inventory Routes */}
         <Route path="/inventory" element={user ? <Layout user={user} handleLogout={handleLogout}><Inventory /></Layout> : <Navigate to="/login" />} />
+        <Route path="/products" element={user ? <Layout user={user} handleLogout={handleLogout}><Inventory /></Layout> : <Navigate to="/login" />} />
+        
         <Route path="/transactions" element={user ? <Layout user={user} handleLogout={handleLogout}><Transactions /></Layout> : <Navigate to="/login" />} />
         <Route path="/analytics" element={user ? <Layout user={user} handleLogout={handleLogout}><Analytics /></Layout> : <Navigate to="/login" />} />
         <Route path="/qr-scanner" element={user ? <Layout user={user} handleLogout={handleLogout}><QRManager /></Layout> : <Navigate to="/login" />} />
