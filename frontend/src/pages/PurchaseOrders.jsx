@@ -83,6 +83,23 @@ export default function PurchaseOrders() {
     }
   };
 
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      await API.put(`/orders/${orderId}`, { status: newStatus }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setOrders(orders.map(o => o._id === orderId ? { ...o, status: newStatus } : o));
+      setSelectedOrder({ ...selectedOrder, status: newStatus });
+      
+    } catch (err) {
+      console.error("Error updating order status", err);
+      alert("Failed to update status. Check if PUT /orders/:id is built on your backend.");
+    }
+  };
+
   const stats = {
     All: orders.length,
     Pending: orders.filter(o => o.status === 'PENDING').length,
@@ -294,13 +311,31 @@ export default function PurchaseOrders() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-6 mt-6 border-t border-slate-100">
+            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
               <button 
                 onClick={() => setSelectedOrder(null)}
-                className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition-colors"
+                className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
               >
                 Close Window
               </button>
+              
+              {selectedOrder.status === 'PENDING' && (
+                <button 
+                  onClick={() => handleUpdateStatus(selectedOrder._id, 'ORDERED')}
+                  className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-lg transition-colors"
+                >
+                  Approve & Send to Vendor
+                </button>
+              )}
+
+              {selectedOrder.status === 'ORDERED' && (
+                <button 
+                  onClick={() => handleUpdateStatus(selectedOrder._id, 'RECEIVED')}
+                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-colors"
+                >
+                  Mark as Received
+                </button>
+              )}
             </div>
 
           </div>
