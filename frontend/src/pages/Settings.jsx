@@ -1,22 +1,48 @@
 import React, { useState } from 'react';
-import { User, Building, Shield, Bell, Save, Camera } from 'lucide-react';
+import API from '../services/api'; // Added API import for database sync
+import { User, Building, Save } from 'lucide-react';
 
 export default function Settings() {
+  // Read the user from login
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
+  
+  // Auto-populate from login data. Fallback to empty string, not "Acme Logistics"
   const [profilePic, setProfilePic] = useState(user.profilePic || '');
-  const [businessName, setBusinessName] = useState(user.businessName || 'Acme Logistics');
-  // 1. ADDED: State to track the industry
-  const [industry, setIndustry] = useState(user.industry || 'General Logistics'); 
+  const [businessName, setBusinessName] = useState(user.orgName || user.businessName || '');
+  const [industry, setIndustry] = useState(user.industry || 'General / Other'); 
+  
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    // 2. ADDED: Include 'industry' when saving the updated user
-    const updatedUser = { ...user, businessName, profilePic, industry };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      
+      // 1. Send the changes to your backend database
+      await API.put('/settings/organization', {
+        orgName: businessName,
+        industry: industry,
+        profilePic: profilePic
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // 2. Update the local session so the sidebar and catalog update instantly
+      const updatedUser = { ...user, orgName: businessName, businessName, industry, profilePic };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+      alert("Error saving settings. Check if your backend PUT route is built.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,53 +77,62 @@ export default function Settings() {
                   placeholder="https://example.com/avatar.jpg" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500"
                 />
-                <p className="text-xs text-slate-400 mt-1">Paste an image link to replace the default initials avatar.</p>
               </div>
             </div>
           </div>
 
           <hr className="border-slate-100" />
 
-          {/* Business Information */}
+          {/* Business Information Section */}
           <div>
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
               <Building className="h-5 w-5 text-brand-500" /> Organization Settings
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Auto-populated Business Name */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Business / Warehouse Name</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Business / Organization Name</label>
                 <input 
                   type="text" 
                   value={businessName} 
                   onChange={(e) => setBusinessName(e.target.value)} 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500"
+                  required
                 />
               </div>
+              
+              {/* Dropdown Menu for Industry */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Assigned Industry Template</label>
-                {/* 3. FIXED: Removed 'disabled', updated value/onChange, and restored standard styling */}
-                <input 
-                  type="text" 
+                <select 
                   value={industry} 
                   onChange={(e) => setIndustry(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500"
-                />
+                >
+                  <option value="General / Other">General / Other</option>
+                  <option value="Electronics Supplier">Electronics Supplier</option>
+                  <option value="Pharmacy / Medical Supplier">Pharmacy / Medical Supplier</option>
+                  <option value="Automotive Parts Supplier">Automotive Parts Supplier</option>
+                </select>
               </div>
+
             </div>
           </div>
 
           {success && (
             <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 font-medium text-sm">
-              Preferences successfully updated! Refresh to see changes reflected across the app.
+              Preferences successfully saved to database!
             </div>
           )}
 
           <div className="flex justify-end pt-4">
             <button 
               type="submit"
-              className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-brand-500/20 flex items-center gap-2"
+              disabled={loading}
+              className="px-6 py-3 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-300 text-white font-bold rounded-xl transition-colors shadow-lg flex items-center gap-2"
             >
-              <Save className="h-5 w-5" /> Save Changes
+              <Save className="h-5 w-5" /> {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
 
