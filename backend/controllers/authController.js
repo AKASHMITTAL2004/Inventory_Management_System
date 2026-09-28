@@ -37,8 +37,14 @@ export const signup = async (req, res) => {
 
     res.status(201).json({
       token: generateToken(user),
-      // ADDED: industry is now sent to the frontend
-      user: { id: user._id, name: user.name, role: user.role, orgId: organization._id, industry: organization.industry }
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        email: user.email, // FIXED: Added email here
+        role: user.role, 
+        orgId: organization._id, 
+        industry: organization.industry 
+      }
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during signup", error: error.message });
@@ -59,13 +65,18 @@ export const login = async (req, res) => {
       return res.json({ requires2FA: true, userId: user._id });
     }
 
-    // ADDED: Fetch the organization to get the industry
     const organization = await Organization.findById(user.organization_id);
 
     res.json({
       token: generateToken(user),
-      // ADDED: industry is now sent to the frontend
-      user: { id: user._id, name: user.name,email: user.email, role: user.role, orgId: user.organization_id, industry: organization?.industry || 'general' }
+      user: { 
+        id: user._id, 
+        name: user.name,
+        email: user.email, 
+        role: user.role, 
+        orgId: user.organization_id, 
+        industry: organization?.industry || 'general' 
+      }
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during login" });
@@ -108,18 +119,43 @@ export const verify2FA = async (req, res) => {
         await user.save();
       }
       
-      // ADDED: Fetch the organization to get the industry
       const organization = await Organization.findById(user.organization_id);
 
       res.json({
         token: generateToken(user),
-        // ADDED: industry is now sent to the frontend
-        user: { id: user._id, name: user.name, role: user.role, orgId: user.organization_id, industry: organization?.industry || 'general' }
+        user: { 
+          id: user._id, 
+          name: user.name, 
+          email: user.email, // FIXED: Added email here
+          role: user.role, 
+          orgId: user.organization_id, 
+          industry: organization?.industry || 'general' 
+        }
       });
     } else {
       res.status(400).json({ message: "Invalid 2FA token" });
     }
   } catch (error) {
     res.status(500).json({ message: "Error verifying 2FA" });
+  }
+};
+
+// 5. UPDATE SETTINGS
+export const updateSettings = async (req, res) => {
+  try {
+    const { orgName, industry, profilePic } = req.body;
+
+    await Organization.findByIdAndUpdate(req.user.orgId, { 
+      name: orgName, 
+      industry: industry 
+    });
+
+    if (profilePic !== undefined) {
+      await User.findByIdAndUpdate(req.user.id, { profilePic });
+    }
+
+    res.status(200).json({ message: "Settings updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating settings", error: error.message });
   }
 };
