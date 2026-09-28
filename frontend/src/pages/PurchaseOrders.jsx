@@ -6,12 +6,12 @@ import { ShoppingCart, Plus, Search, Filter, Clock, CheckCircle2, Truck } from '
 export default function PurchaseOrders() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [suppliers, setSuppliers] = useState([]); // NEW: State to hold suppliers
+  const [suppliers, setSuppliers] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchParams] = useSearchParams();
-  // Add this near your other state variables
+  
   const [selectedOrder, setSelectedOrder] = useState(null);
   
   const [formData, setFormData] = useState({
@@ -27,14 +27,12 @@ export default function PurchaseOrders() {
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      // 1. Fetch Products and Suppliers safely
       const prodRes = await API.get('/inventory/products', config);
       setProducts(prodRes.data);
 
       const suppRes = await API.get('/inventory/suppliers', config);
       setSuppliers(suppRes.data);
 
-      // 2. Try to fetch orders, but don't crash if the backend route isn't built yet
       try {
         const orderRes = await API.get('/orders', config);
         setOrders(orderRes.data);
@@ -54,7 +52,6 @@ export default function PurchaseOrders() {
     fetchData();
   }, []);
 
-  // Auto-fill vendor ID from URL and open modal AFTER suppliers load
   useEffect(() => {
     const vendorId = searchParams.get('vendor');
     if (vendorId && suppliers.length > 0) {
@@ -195,9 +192,14 @@ export default function PurchaseOrders() {
                       <span className="block text-lg font-bold text-slate-800">${po.total?.toLocaleString() || 0}</span>
                       <span className="text-xs text-slate-400">{po.quantity} Units</span>
                     </div>
-                    <button className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200">
+                    
+                    <button 
+                      onClick={() => setSelectedOrder(po)}
+                      className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200"
+                    >
                       View Details
                     </button>
+                    
                   </div>
                 </div>
               ))}
@@ -212,7 +214,6 @@ export default function PurchaseOrders() {
             <h2 className="text-2xl font-bold text-slate-800 mb-6">Create Purchase Order</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               
-              {/* FIXED: This is now a dropdown showing actual Supplier Names */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Vendor / Supplier</label>
                 <select value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required>
@@ -223,7 +224,6 @@ export default function PurchaseOrders() {
                 </select>
               </div>
               
-              {/* FIXED: This will now successfully load your products */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Select Product to Restock</label>
                 <select value={formData.product_id} onChange={e => setFormData({...formData, product_id: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required>
@@ -252,6 +252,61 @@ export default function PurchaseOrders() {
           </div>
         </div>
       )}
+
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl">
+            
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Order Details</h2>
+                <p className="text-sm text-slate-500 font-mono mt-1">PO: {selectedOrder._id}</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                selectedOrder.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+              }`}>
+                {selectedOrder.status || 'Pending Approval'}
+              </span>
+            </div>
+
+            <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-500 font-medium mb-1">Vendor</p>
+                  <p className="font-bold text-slate-800">{selectedOrder.supplier}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium mb-1">Total Value</p>
+                  <p className="font-bold text-slate-800">${selectedOrder.total?.toLocaleString() || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium mb-1">Product</p>
+                  <p className="font-bold text-slate-800">{selectedOrder.product}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium mb-1">Quantity Ordered</p>
+                  <p className="font-bold text-slate-800">{selectedOrder.quantity} Units</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium mb-1">Expected Date</p>
+                  <p className="font-bold text-slate-800">{selectedOrder.date}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-6 mt-6 border-t border-slate-100">
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition-colors"
+              >
+                Close Window
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
