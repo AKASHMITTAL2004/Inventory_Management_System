@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import API from '../services/api'; // Added API import for database sync
-import { User, Building, Save } from 'lucide-react';
+import API from '../services/api';
+import { User, Building, Save, Upload } from 'lucide-react';
 
 export default function Settings() {
-  // Read the user from login
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
   
-  // Auto-populate from login data. Fallback to empty string, not "Acme Logistics"
   const [profilePic, setProfilePic] = useState(user.profilePic || '');
   const [businessName, setBusinessName] = useState(user.orgName || user.businessName || '');
   const [industry, setIndustry] = useState(user.industry || 'General / Other'); 
   
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // NEW: Converts an uploaded image file into a Base64 string to save to database
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePic(reader.result); // Sets the Base64 image data
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -21,7 +31,6 @@ export default function Settings() {
     try {
       const token = localStorage.getItem("token");
       
-      // 1. Send the changes to your backend database
       await API.put('/auth/settings/organization', {
         orgName: businessName,
         industry: industry,
@@ -30,7 +39,6 @@ export default function Settings() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // 2. Update the local session so the sidebar and catalog update instantly
       const updatedUser = { ...user, orgName: businessName, businessName, industry, profilePic };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
@@ -39,7 +47,7 @@ export default function Settings() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      alert("Error saving settings. Check if your backend PUT route is built.");
+      alert("Error saving settings.");
     } finally {
       setLoading(false);
     }
@@ -55,13 +63,13 @@ export default function Settings() {
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
         <form onSubmit={handleSave} className="space-y-8">
           
-          {/* Profile Picture Section */}
+          {/* Real Photo Upload Section */}
           <div>
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
               <User className="h-5 w-5 text-brand-500" /> User Profile Image
             </h2>
             <div className="flex items-center gap-6">
-              <div className="h-20 w-20 rounded-2xl bg-slate-100 border-2 border-slate-200 overflow-hidden flex items-center justify-center relative shadow-inner">
+              <div className="h-20 w-20 rounded-2xl bg-slate-100 border-2 border-slate-200 overflow-hidden flex items-center justify-center relative shadow-inner shrink-0">
                 {profilePic ? (
                   <img src={profilePic} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
@@ -69,14 +77,15 @@ export default function Settings() {
                 )}
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-bold text-slate-700 mb-2">Profile Image URL</label>
-                <input 
-                  type="url" 
-                  value={profilePic} 
-                  onChange={(e) => setProfilePic(e.target.value)} 
-                  placeholder="https://example.com/avatar.jpg" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500"
-                />
+                <label className="block text-sm font-bold text-slate-700 mb-2">Upload New Photo</label>
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -90,7 +99,6 @@ export default function Settings() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Auto-populated Business Name */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Business / Organization Name</label>
                 <input 
@@ -102,7 +110,7 @@ export default function Settings() {
                 />
               </div>
               
-              {/* Dropdown Menu for Industry */}
+              {/* Expanded Dropdown Menu */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Assigned Industry Template</label>
                 <select 
@@ -114,6 +122,9 @@ export default function Settings() {
                   <option value="Electronics Supplier">Electronics Supplier</option>
                   <option value="Pharmacy / Medical Supplier">Pharmacy / Medical Supplier</option>
                   <option value="Automotive Parts Supplier">Automotive Parts Supplier</option>
+                  <option value="Food & Beverage">Food & Beverage</option>
+                  <option value="Retail & Apparel">Retail & Apparel</option>
+                  <option value="Manufacturing (Heavy)">Manufacturing (Heavy)</option>
                 </select>
               </div>
 
