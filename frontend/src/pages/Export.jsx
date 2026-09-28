@@ -8,27 +8,127 @@ export default function Export() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // 1. NATIVE CSV GENERATOR
+  const generateCSV = (data, filename) => {
+    const headers = Object.keys(data[0]);
+    const rows = data.map(row => 
+      headers.map(header => `"${(row[header] || '').toString().replace(/"/g, '""')}"`).join(',')
+    );
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 2. NATIVE PDF GENERATOR (Uses Browser Print Engine)
+  const generatePDF = (data, title) => {
+    const headers = Object.keys(data[0]);
+    const printWindow = window.open('', '_blank');
+    
+    const tableHeaders = headers.map(h => `<th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left; background-color: #f8fafc; color: #334155;">${h.replace(/_/g, ' ')}</th>`).join('');
+    const tableRows = data.map(row => 
+      `<tr>${headers.map(h => `<td style="border: 1px solid #cbd5e1; padding: 12px; color: #475569;">${row[h] || ''}</td>`).join('')}</tr>`
+    ).join('');
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; }
+            table { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 20px; }
+            h1 { color: #0f172a; margin-bottom: 5px; }
+            p { color: #64748b; margin-top: 0; margin-bottom: 30px;}
+          </style>
+        </head>
+        <body>
+          <h1>${title.replace(/_/g, ' ')}</h1>
+          <p>Generated on: ${new Date().toLocaleString()}</p>
+          <table>
+            <thead><tr>${tableHeaders}</tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+          <script>
+            window.onload = () => { 
+              window.print(); 
+              setTimeout(() => window.close(), 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const handleExport = async (e) => {
     e.preventDefault();
     setLoading(true);
     setSuccessMessage('');
+    
     try {
-      const response = await API.get(`/export/${reportType}?format=${format}`, {
-        responseType: 'blob',
-      });
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${reportType}-report.${format}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      
+      let exportData = [];
+      let filename = `${reportType}-report-${new Date().toISOString().split('T')[0]}`;
+
+      // Fetch the raw data based on dropdown selection
+      if (reportType === 'inventory') {
+        const res = await API.get('/inventory/products', config);
+        exportData = res.data.map(p => ({
+          SKU: p.sku || 'N/A',
+          Product_Name: p.name,
+          Category: p.category || 'General',
+          Stock_Quantity: p.quantity || 0,
+          Unit_Price: `$${p.price?.toLocaleString() || 0}`,
+          Total_Value: `$${((p.quantity || 0) * (p.price || 0)).toLocaleString()}`
+        }));
+      } 
+      else if (reportType === 'transactions') {
+        const res = await API.get('/orders', config);
+        exportData = res.data.map(o => ({
+          Order_ID: o._id.slice(-6).toUpperCase(),
+          Supplier: o.supplier || o.supplier_id?.name || 'N/A',
+          Status: o.status,
+          Quantity: o.quantity,
+          Date: new Date(o.createdAt || Date.now()).toLocaleDateString()
+        }));
+      }
+      else if (reportType === 'low-stock') {
+        const res = await API.get('/inventory/products', config);
+        exportData = res.data
+          .filter(p => (p.quantity || 0) <= (p.minStockThreshold || 500))
+          .map(p => ({
+            SKU: p.sku || 'N/A',
+            Product_Name: p.name,
+            Current_Stock: p.quantity || 0,
+            Alert_Status: 'CRITICAL LOW'
+          }));
+      }
+
+      // Check if data is empty
+      if (exportData.length === 0) {
+        setLoading(false);
+        return alert("No data found to export for this category.");
+      }
+
+      // Trigger actual downloads
+      if (format === 'csv') {
+        generateCSV(exportData, filename);
+      } else {
+        generatePDF(exportData, filename);
+      }
+
       setSuccessMessage(`Successfully generated and downloaded ${reportType.toUpperCase()} report as ${format.toUpperCase()}!`);
     } catch (err) {
-      console.error("Export error, fallback simulation", err);
-      setSuccessMessage(`Successfully simulated download for ${reportType.toUpperCase()} (${format.toUpperCase()})!`);
+      console.error("Export error", err);
+      alert("Error generating report. Ensure your backend routes are working.");
     } finally {
       setLoading(false);
     }
