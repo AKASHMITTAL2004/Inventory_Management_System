@@ -7,6 +7,7 @@ export default function PurchaseOrders() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]); 
+  const [warehouses, setWarehouses] = useState([]); // Added to load your warehouses
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,6 +18,7 @@ export default function PurchaseOrders() {
   const [formData, setFormData] = useState({
     supplier: '',
     product_id: '',
+    warehouse_id: '', // Added to track which building gets the items
     quantity: 10,
     expectedDate: '',
     notes: ''
@@ -33,11 +35,14 @@ export default function PurchaseOrders() {
       const suppRes = await API.get('/inventory/suppliers', config);
       setSuppliers(suppRes.data);
 
+      // Fetch Warehouses so they appear in the dropdown
+      const wareRes = await API.get('/inventory/warehouses', config).catch(() => API.get('/warehouses', config));
+      setWarehouses(wareRes.data || []);
+
       try {
         const orderRes = await API.get('/orders', config);
         setOrders(orderRes.data);
       } catch (orderErr) {
-        console.warn("Backend /orders route is missing or failing. Defaulting to empty array.");
         setOrders([]); 
       }
       
@@ -67,6 +72,7 @@ export default function PurchaseOrders() {
       const response = await API.post('/orders', {
         supplier_id: formData.supplier,
         product_id: formData.product_id,
+        warehouse_id: formData.warehouse_id, // Sends the selected building to the database
         quantity: formData.quantity,
         expectedDate: formData.expectedDate,
         notes: formData.notes
@@ -76,17 +82,16 @@ export default function PurchaseOrders() {
       
       setOrders([response.data, ...orders]);
       setIsModalOpen(false);
-      setFormData({ supplier: '', product_id: '', quantity: 10, expectedDate: '', notes: '' });
+      setFormData({ supplier: '', product_id: '', warehouse_id: '', quantity: 10, expectedDate: '', notes: '' });
     } catch (err) {
       console.error("Failed to save purchase order", err);
-      alert("Error saving order. Have you built the POST /orders route on your backend yet?");
+      alert("Error saving order. Check backend.");
     }
   };
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       const token = localStorage.getItem("token");
-      
       await API.put(`/orders/${orderId}`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -96,7 +101,7 @@ export default function PurchaseOrders() {
       
     } catch (err) {
       console.error("Error updating order status", err);
-      alert("Failed to update status. Check if PUT /orders/:id is built on your backend.");
+      alert("Failed to update status.");
     }
   };
 
@@ -216,7 +221,6 @@ export default function PurchaseOrders() {
                     >
                       View Details
                     </button>
-                    
                   </div>
                 </div>
               ))}
@@ -251,6 +255,17 @@ export default function PurchaseOrders() {
                 </select>
               </div>
 
+              {/* THIS IS THE FIX: The new Destination Warehouse Dropdown */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Destination Warehouse</label>
+                <select value={formData.warehouse_id} onChange={e => setFormData({...formData, warehouse_id: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500" required>
+                  <option value="">Select destination warehouse...</option>
+                  {warehouses.map(w => (
+                    <option key={w._id} value={w._id}>{w.name} (Capacity: {w.capacity.toLocaleString()})</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Quantity</label>
@@ -270,6 +285,7 @@ export default function PurchaseOrders() {
         </div>
       )}
 
+      {/* MODAL: View Details */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl">
