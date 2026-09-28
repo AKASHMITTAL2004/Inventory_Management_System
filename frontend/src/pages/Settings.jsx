@@ -22,7 +22,7 @@ export default function Settings() {
       const token = localStorage.getItem("token");
       
       // 1. Send the changes to your backend database
-      await API.put('/settings/organization', {
+      await API.put('/auth/settings/organization', {
         orgName: businessName,
         industry: industry,
         profilePic: profilePic
