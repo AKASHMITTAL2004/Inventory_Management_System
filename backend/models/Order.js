@@ -5,6 +5,9 @@ const orderSchema = new mongoose.Schema({
   supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", required: true },
   product_id: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
   
+  // ADDED THIS LINE:
+  warehouse_id: { type: mongoose.Schema.Types.ObjectId, ref: "Warehouse", required: false },
+  
   quantity: { type: Number, required: true },
   expectedDate: { type: Date },
   notes: { type: String },
