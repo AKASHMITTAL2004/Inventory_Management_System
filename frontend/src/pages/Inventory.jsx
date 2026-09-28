@@ -312,7 +312,7 @@ export default function Inventory() {
                   </div>
                 )}
 
-                {userIndustry.toLowerCase().includes('electronic') && (
+                {(userIndustry.toLowerCase().includes('electronic') || userIndustry.toLowerCase().includes('automotive')) && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-blue-900 mb-1">Serial Number</label>
