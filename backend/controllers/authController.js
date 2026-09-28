@@ -35,17 +35,22 @@ export const signup = async (req, res) => {
       organization_id: organization._id,
     });
 
-    res.status(201).json({
-      token: generateToken(user),
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, // FIXED: Added email here
-        role: user.role, 
-        orgId: organization._id, 
-        industry: organization.industry 
-      }
-    });
+    // Do this inside login, signup, AND verify2FA responses:
+res.json({
+  token: generateToken(user),
+  user: { 
+    id: user._id, 
+    name: user.name,
+    email: user.email, 
+    role: user.role, 
+    orgId: user.organization_id, 
+    
+    // ADD THIS ONE LINE:
+    orgName: organization?.name || 'My Organization', 
+    
+    industry: organization?.industry || 'general' 
+  }
+});
   } catch (error) {
     res.status(500).json({ message: "Server error during signup", error: error.message });
   }
