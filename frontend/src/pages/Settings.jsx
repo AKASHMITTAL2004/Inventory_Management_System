@@ -5,11 +5,14 @@ export default function Settings() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
   const [profilePic, setProfilePic] = useState(user.profilePic || '');
   const [businessName, setBusinessName] = useState(user.businessName || 'Acme Logistics');
+  // 1. ADDED: State to track the industry
+  const [industry, setIndustry] = useState(user.industry || 'General Logistics'); 
   const [success, setSuccess] = useState(false);
 
   const handleSave = (e) => {
     e.preventDefault();
-    const updatedUser = { ...user, businessName, profilePic };
+    // 2. ADDED: Include 'industry' when saving the updated user
+    const updatedUser = { ...user, businessName, profilePic, industry };
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setUser(updatedUser);
     setSuccess(true);
@@ -72,11 +75,12 @@ export default function Settings() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Assigned Industry Template</label>
+                {/* 3. FIXED: Removed 'disabled', updated value/onChange, and restored standard styling */}
                 <input 
                   type="text" 
-                  value={user.industry || 'General Logistics'} 
-                  disabled 
-                  className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-500 cursor-not-allowed"
+                  value={industry} 
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500"
                 />
               </div>
             </div>
