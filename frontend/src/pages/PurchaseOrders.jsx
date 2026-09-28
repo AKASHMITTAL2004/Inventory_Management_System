@@ -11,6 +11,8 @@ export default function PurchaseOrders() {
   const [activeTab, setActiveTab] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchParams] = useSearchParams();
+  // Add this near your other state variables
+  const [selectedOrder, setSelectedOrder] = useState(null);
   
   const [formData, setFormData] = useState({
     supplier: '',
