@@ -65,7 +65,7 @@ export const login = async (req, res) => {
     res.json({
       token: generateToken(user),
       // ADDED: industry is now sent to the frontend
-      user: { id: user._id, name: user.name, role: user.role, orgId: user.organization_id, industry: organization?.industry || 'general' }
+      user: { id: user._id, name: user.name,email: user.email, role: user.role, orgId: user.organization_id, industry: organization?.industry || 'general' }
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during login" });
